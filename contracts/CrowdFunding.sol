@@ -9,6 +9,9 @@ contract Crowdfunding {
     uint256 public deadline;
     address public owner;
 
+    enum CampaignState { Active, Successful, Failed}
+    CampaignState public state;
+
     struct Tier {
         string name;
         uint256 amount;
@@ -19,6 +22,11 @@ contract Crowdfunding {
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
+        _;
+    }
+
+    modifier campaignOpen() {
+        require(state == CampaignState.Active, "Campaign is not active");
         _;
     }
 
@@ -33,14 +41,27 @@ contract Crowdfunding {
         goal = _goal;
         deadline = block.timestamp + (_duratationInDays * 1 days);
         owner = msg.sender;
+        state = CampaignState.Active;
     }
 
-    function fund(uint256 _tierIndex)  public payable {
-        require(block.timestamp < deadline, "Campaign has ended.");
+    function checkAndUpdateCampaignState() internal {
+        if(state == CampaignState.Active){
+            if(block.timestamp >= deadline){
+                state = address(this).balance >= goal ? CampaignState.Successful : CampaignState.Failed;
+            } else {
+                state = address(this).balance >= goal ? CampaignState.Successful : CampaignState.Active;
+            }
+        }
+    }
+
+    function fund(uint256 _tierIndex)  public payable campaignOpen{
+
         require(_tierIndex < tiers.length, "Invalid tier.");
         require(msg.value == tiers[_tierIndex].amount, "Invalid amount.");
 
         tiers[_tierIndex].backers++;
+
+        checkAndUpdateCampaignState();
     }
 
     function addTier(
@@ -59,8 +80,8 @@ contract Crowdfunding {
     }
 
     function withdraw()  public onlyOwner() {
-        require(msg.sender == owner, "Only owner can withdraw funds.");
-        require(address(this).balance >= goal, "Funding goal has not been reached.");
+        checkAndUpdateCampaignState();
+        require(state == CampaignState.Successful, "Campaign is not successful");
 
         uint256 balance = address(this).balance;
         require(balance > 0, "No balance to withdraw");
