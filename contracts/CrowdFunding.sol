@@ -43,6 +43,7 @@ contract Crowdfunding {
     }
 
     constructor(
+        address _owner,
         string memory _name,
         string memory _description,
         uint256 _goal,
@@ -52,7 +53,7 @@ contract Crowdfunding {
         description = _description;
         goal = _goal;
         deadline = block.timestamp + (_duratationInDays * 1 days);
-        owner = msg.sender;
+        owner = _owner;
         state = CampaignState.Active;
     }
 
